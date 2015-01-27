@@ -1,6 +1,6 @@
 # jetsonSIFT
 
-This is a CUDA-accelerated SIFT implementation. Enter the following commands to compile:
+This is a CUDA-accelerated SIFT keypoint extraction implementation. Note it currently only perform extraction on the first octave. Enter the following commands to compile:
 
 ```bash
 cd jetsonSIFT
