@@ -21,4 +21,4 @@ Sample:
 ./jetsonSIFT ../images/lenna.jpg
 ```
 
-If you receive errors regarding an unsupported CUDA architecture specification, edit the 'arch=compute\_32,code=sm\_32' line to match the latest architecture supported by your (Nvidia) card.
+If you receive errors regarding an unsupported CUDA architecture specification, edit the `arch=compute\_32,code=sm\_32` line to match the latest architecture supported by your (Nvidia) card.
