@@ -1,9 +1,16 @@
+#include <cstdio>
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include "gpuSift.h"
-#include "opencv2\imgproc\imgproc.hpp"
 
-
-int main()
+int main(int argc, char** argv)
 {
+	if (argc != 2)
+	{
+		printf("Usage: ./jetsonSift yourimage.jpg\n");
+		exit(0);
+	}
+
 	Mat inImage, outImage;
 
 	SIFT_GPU sift;
@@ -12,7 +19,14 @@ int main()
 	vector<float> descriptors_CPU;
 	GpuMat keypoints_GPU;
 
-	inImage = imread("lenna.jpg");
+	inImage = imread(argv[1]);
+
+	if (inImage.data == NULL)
+	{
+		printf("\"%s\" is not a valid image\n", argv[1]);
+		exit(0);
+	}
+
 	cvtColor(inImage, outImage, CV_BGR2GRAY);
 	GaussianBlur( outImage, outImage, Size( 5, 5 ), 1, 1 );
 	sift(outImage, keypoints_GPU);

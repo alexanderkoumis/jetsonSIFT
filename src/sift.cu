@@ -1,5 +1,9 @@
 #include "sift.h"
+
+#include <cstdio>
+
 #include <opencv2/gpu/device/utility.hpp>
+
 ////////////////////////////////////////////////////////////////////////
 // Creating Difference-of-Gaussian Space                              //
 __constant__ float gaussKernel1D[6][5] = {	{ 0.010333864010783912, 0.20756120714779008, 0.564209857682852,   0.20756120714779008, 0.010333864010783912 },
@@ -417,7 +421,7 @@ __global__ void interpolate(float* deviceDoGData, int rows, int cols, int scales
 				doAgain = true;
 				newX += X[0];
 				newY += X[1];
-				newScl = min(max(0,scl + lrintf(X[2])),scales-1); // This will result in some bullshit coordinates which will probably not pass filtering
+				newScl = min(max(0,scl + (int)lrintf(X[2])),scales-1); // This will result in some bullshit coordinates which will probably not pass filtering
 			}
 			xOff = X[0];
 			yOff = X[1];
