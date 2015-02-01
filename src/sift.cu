@@ -1,17 +1,44 @@
 #include "sift.h"
 
 #include <cstdio>
+#include <math.h> // abs
 
+#include <opencv2/gpu/device/common.hpp>
 #include <opencv2/gpu/device/utility.hpp>
+
+#include "helper_math.h" // make_int4
+#include "utils.h"
+
+#define __CUDA_INTERNAL_COMPILATION__
+#include "math_functions.h"
+#undef __CUDA_INTERNAL_COMPILATION__
+
+const int ROWS_BLOCKDIM_X = 16;
+const int ROWS_BLOCKDIM_Y = 4;
+const int ROWS_RESULT_STEPS = 8;
+const int ROWS_HALO_STEPS = 1;
+const int COLUMNS_BLOCKDIM_X = 16;
+const int COLUMNS_BLOCKDIM_Y = 8;
+const int COLUMNS_RESULT_STEPS = 8;
+const int COLUMNS_HALO_STEPS = 1;
+const int KERNEL_RADIUS = 2;
+
+const int CONTRASTTHRESHOLD = 72; // Base value of 64 + 8
+const int EDGETHRESHOLD = 10; // r
+
+const int SIFT_MAX_INTERP_STEPS = 5;
 
 ////////////////////////////////////////////////////////////////////////
 // Creating Difference-of-Gaussian Space                              //
-__constant__ float gaussKernel1D[6][5] = {	{ 0.010333864010783912, 0.20756120714779008, 0.564209857682852,   0.20756120714779008, 0.010333864010783912 },
-											{ 0.05448868454964433,  0.24420134200323346, 0.40261994689424435, 0.24420134200323346, 0.05448868454964433  },
-											{ 0.11170336406408216,  0.23647602357935057, 0.30364122471313454, 0.23647602357935057, 0.11170336406408216  },
-											{ 0.15246914402033807,  0.2218412955437766,  0.25137912087177056, 0.2218412955437766,  0.15246914402033807  },
-											{ 0.17554682216870093,  0.21174988708961204, 0.22540658148337414, 0.21174988708961204, 0.17554682216870093  },
-											{ 0.1876271619513903,   0.2060681238893415,  0.21260942831853635, 0.2060681238893415,  0.1876271619513903   }  };
+__constant__ float gaussKernel1D[6][5] =
+{
+	{ 0.010333864010783912, 0.20756120714779008, 0.564209857682852,   0.20756120714779008, 0.010333864010783912 },
+	{ 0.05448868454964433,  0.24420134200323346, 0.40261994689424435, 0.24420134200323346, 0.05448868454964433  },
+	{ 0.11170336406408216,  0.23647602357935057, 0.30364122471313454, 0.23647602357935057, 0.11170336406408216  },
+	{ 0.15246914402033807,  0.2218412955437766,  0.25137912087177056, 0.2218412955437766,  0.15246914402033807  },
+	{ 0.17554682216870093,  0.21174988708961204, 0.22540658148337414, 0.21174988708961204, 0.17554682216870093  },
+	{ 0.1876271619513903,   0.2060681238893415,  0.21260942831853635, 0.2060681238893415,  0.1876271619513903   }
+};
 
 __global__ void rowConvolve (float* outImg, unsigned char* inImg, int scales, int rows, int cols, int pitch)
 {
@@ -53,7 +80,7 @@ __global__ void rowConvolve (float* outImg, unsigned char* inImg, int scales, in
 
 	//Compute and store results
 	#pragma unroll
-    for (int scl = 0; scl < scales; scl++)
+		for (int scl = 0; scl < scales; scl++)
 	{
 		#pragma unroll
 		for (int i = ROWS_HALO_STEPS; i < ROWS_HALO_STEPS + ROWS_RESULT_STEPS; i++)
@@ -105,7 +132,7 @@ __global__ void colConvolve (float* outImg, float* inImg, int scales, int rows, 
 	__syncthreads();
 
 	#pragma unroll
-    for (int scl = 0; scl < scales; scl++)
+		for (int scl = 0; scl < scales; scl++)
 	{
 		#pragma unroll
 		for (int i = COLUMNS_HALO_STEPS; i < COLUMNS_HALO_STEPS + COLUMNS_RESULT_STEPS; i++)
@@ -156,7 +183,7 @@ void createDoGSpace(unsigned char* inImage, float** deviceDoGData, int scales, i
 	cudaEventCreate(&stop);
 	cudaEventRecord(start, 0);
 
- 	unsigned char* deviceInputData;
+	unsigned char* deviceInputData;
 	float* deviceConvolveBuffer;
 	float* deviceDifferenceData;
 	
@@ -200,7 +227,7 @@ void createDoGSpace(unsigned char* inImage, float** deviceDoGData, int scales, i
 
 	dim3 colThreads(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
 	dim3 colBlocks(cols / COLUMNS_BLOCKDIM_X, rows / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
-  	
+		
 	colConvolve <<< colBlocks, colThreads >>> (deviceDifferenceData, deviceConvolveBuffer, scales, cols, rows, cols);
 	cudaDeviceSynchronize();
 	
@@ -281,7 +308,7 @@ __global__ void findExtremasGPU(float* deviceDoGData, int4* extremaBuffer, unsig
 							&&  candidate > neighborhood[center     + blockDim.x - zOff]
 							&&  candidate > neighborhood[center + 1 + blockDim.x - zOff] 
 			
-							&&	candidate > neighborhood[center - 1 - blockDim.x       ] 
+							&&  candidate > neighborhood[center - 1 - blockDim.x       ] 
 							&&  candidate > neighborhood[center     - blockDim.x       ]
 							&&  candidate > neighborhood[center + 1 - blockDim.x       ]
 							&&  candidate > neighborhood[center - 1                    ]
@@ -305,7 +332,7 @@ __global__ void findExtremasGPU(float* deviceDoGData, int4* extremaBuffer, unsig
 				unsigned int index = atomicInc(maxCounter, (unsigned int) - 1);
 				if (index < MAXEXTREMAS)
 				{
-					extremaBuffer[index] = make_int4(x, y, scale, octave);				
+					extremaBuffer[index] = make_int4(x, y, scale, octave);        
 				}
 			}
 		}
@@ -326,7 +353,7 @@ void findExtremas(float* deviceDoGData, int4** extremaBuffer, unsigned int** max
 	cudaMemset(*extremaBuffer, 0, MAXEXTREMAS * sizeof(int4));
 	
 	dim3 threads(16, 16);
-	dim3 blocks(divUp(cols - 2, threads.x - 2), divUp(rows - 2, threads.y - 2) * (scales-3));
+	dim3 blocks(cv::gpu::divUp(cols - 2, threads.x - 2), cv::gpu::divUp(rows - 2, threads.y - 2) * (scales-3));
 	const size_t sharedSize = threads.x * threads.y * 3 * sizeof(float);
 
 	findExtremasGPU <<< blocks, threads, sharedSize >>> (deviceDoGData, *extremaBuffer, *maxCounter, octave, scales-3, rows, cols);
@@ -414,7 +441,7 @@ __global__ void interpolate(float* deviceDoGData, int rows, int cols, int scales
 
 		__shared__ float X[3];
 
-		if (device::solve3x3(H, dD, X))
+		if (cv::gpu::device::solve3x3(H, dD, X))
 		{
 			if (fabs(X[0]) > 0.5f && fabs(X[1]) > 0.5f && fabs(X[2]) > 0.5f)
 			{
@@ -438,7 +465,7 @@ __global__ void interpolate(float* deviceDoGData, int rows, int cols, int scales
 		__syncthreads();
 
 		if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
-		{		
+		{   
 			__shared__ float dD[3];
 
 			//dx
@@ -479,7 +506,7 @@ __global__ void interpolate(float* deviceDoGData, int rows, int cols, int scales
 
 			__shared__ float X[3];
 
-			if (device::solve3x3(H, dD, X))
+			if (cv::gpu::device::solve3x3(H, dD, X))
 			{
 				xOff = X[0];
 				yOff = X[1];

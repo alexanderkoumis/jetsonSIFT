@@ -4,20 +4,12 @@
 #include <iostream>
 #include <vector>
 
-#include <opencv2/features2d/features2d.hpp>
 #include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/gpu/gpumat.hpp>
-
+#include <opencv2/features2d/features2d.hpp>
 
 #include "math_constants.h"
-
-#include "sift.h"
-#include "utils.h"
-
-using namespace std;
-using namespace cv;
-using namespace gpu;
+#include "helper_math.h"
 
 class SIFT_GPU
 {
@@ -36,8 +28,8 @@ public:
 
 	SIFT_GPU(); 
 
-	void operator()(const Mat& image, GpuMat& keypoints);
-	void downloadKeypoints(GpuMat& keypoints_GPU, vector<KeyPoint>& keypoints_CPU);
+	void operator()(const cv::Mat& image, cv::gpu::GpuMat& keypoints);
+	void downloadKeypoints(cv::gpu::GpuMat& keypoints_GPU, std::vector<cv::KeyPoint>& keypoints_CPU);
 	void releaseMemory();
 
 	int nOctaves;

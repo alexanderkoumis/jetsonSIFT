@@ -1,17 +1,15 @@
-#include <iostream>
-
-#include <cuda_runtime.h>
 #include "gpuSift.h"
 
+#include <iostream>
+#include <cuda_runtime.h>
 
-using namespace cv;
-
-
+#include "sift.h"
+#include "utils.h"
 
 class SIFT_GPU_Invoker
 {
 public:
-	SIFT_GPU_Invoker(SIFT_GPU& sift, const Mat& image) : sift_(sift), inImage(image), cols(image.cols), rows(image.rows)
+	SIFT_GPU_Invoker(SIFT_GPU& sift, const cv::Mat& image) : sift_(sift), inImage(image), cols(image.cols), rows(image.rows)
 	{
 		CV_Assert(!image.empty() && image.type() == CV_8UC1);
 		CV_Assert(sift_.nOctaves > 0 && sift_.nScales > 0);
@@ -20,12 +18,12 @@ public:
 		rows = image.rows;
 	}
 
-	void detectKeypoints(GpuMat& keypoints, int scales)
+	void detectKeypoints(cv::gpu::GpuMat& keypoints, int scales)
 	{
 
 		ensureSizeIsEnough(SIFT_GPU::ROWS_COUNT, MAXEXTREMAS, CV_32FC1, keypoints);
 
-		keypoints.setTo(Scalar::all(0));
+		keypoints.setTo(cv::Scalar::all(0));
 		for (int octave = 0; octave < 1; ++octave)
 		{
 			const int scaleCols = cols >> octave;
@@ -39,13 +37,13 @@ public:
 						keypoints.ptr<float>(SIFT_GPU::ANGLE_ROW), keypoints.ptr<float>(SIFT_GPU::RESPONSE_ROW)); 
 		}
 
-		cout << "Number of keypoints: " << maxCounter[0] << endl;
+		std::cout << "Number of keypoints: " << maxCounter[0] << std::endl;
 	}
 
 private:
 	SIFT_GPU& sift_;
 	
-	const Mat& inImage;
+	const cv::Mat& inImage;
 	float* deviceDoGData;
 
 	unsigned int* maxCounter;
@@ -62,7 +60,7 @@ SIFT_GPU::SIFT_GPU()
 	keypointsRatio = 2;
 }
 
-void SIFT_GPU::operator()(const Mat& image, GpuMat& keypoints)
+void SIFT_GPU::operator()(const cv::Mat& image, cv::gpu::GpuMat& keypoints)
 {
 	if (!image.empty())
 	{
@@ -75,7 +73,7 @@ void SIFT_GPU::operator()(const Mat& image, GpuMat& keypoints)
 	}
 }
 
-void SIFT_GPU::downloadKeypoints(GpuMat& keypoints_GPU, vector<KeyPoint>& keypoints_CPU)
+void SIFT_GPU::downloadKeypoints(cv::gpu::GpuMat& keypoints_GPU, std::vector<cv::KeyPoint>& keypoints_CPU)
 {
 	const int nFeatures = keypoints_GPU.cols;
 
@@ -85,7 +83,7 @@ void SIFT_GPU::downloadKeypoints(GpuMat& keypoints_GPU, vector<KeyPoint>& keypoi
 	}
 	else
 	{
-        Mat tempKeypoints_CPU(keypoints_GPU);
+        cv::Mat tempKeypoints_CPU(keypoints_GPU);
 
         keypoints_CPU.resize(nFeatures);
 
@@ -99,7 +97,7 @@ void SIFT_GPU::downloadKeypoints(GpuMat& keypoints_GPU, vector<KeyPoint>& keypoi
 
         for (int i = 0; i < nFeatures; ++i)
         {
-            KeyPoint& kp = keypoints_CPU[i];
+            cv::KeyPoint& kp = keypoints_CPU[i];
             kp.pt.x = kp_x[i];
             kp.pt.y = kp_y[i];
             kp.class_id = 0;
